@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0D0D0D" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>BoekScan</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="header-logo">
+      <span class="logo-icon">&#9638;</span>
+      <span class="logo-text">BoekScan</span>
+    </div>
+    <button class="settings-btn" onclick="openSettings()">&#9881;</button>
+  </header>
+
+  <div class="settings-overlay" id="settingsOverlay" onclick="closeSettings()"></div>
+  <aside class="settings-panel" id="settingsPanel">
+    <div class="settings-header">
+      <h2>Instellingen</h2>
+      <button class="close-btn" onclick="closeSettings()">&#10005;</button>
+    </div>
+    <div class="settings-body">
+      <p class="settings-intro">Pas je kostprijsberekening aan.</p>
+
+      <label class="setting-label">
+        <span>Verpakkingskosten (euro)</span>
+        <input type="number" id="sCostVerpakking" step="0.01" min="0" value="0.30" />
+      </label>
+      <label class="setting-label">
+        <span>Verzendkosten (euro)</span>
+        <input type="number" id="sCostVerzending" step="0.01" min="0" value="3.99" />
+      </label>
+      <label class="setting-label">
+        <span>Commissie bol.com (%)</span>
+        <input type="number" id="sCommissie" step="0.1" min="0" max="100" value="15" />
+      </label>
+      <label class="setting-label">
+        <span>Minimum netto winst (euro)</span>
+        <input type="number" id="sMinWinst" step="0.10" min="0" value="1.50" />
+      </label>
+
+      <div class="settings-divider"></div>
+      <p class="settings-section-title">Oordeel drempelwaarden</p>
+
+      <label class="setting-label">
+        <span>Min. aanbieders voor Groen</span>
+        <input type="number" id="sMinAanbieders" step="1" min="1" value="3" />
+      </label>
+      <label class="setting-label">
+        <span>Geen ranking = altijd Rood</span>
+        <div class="toggle-wrap">
+          <input type="checkbox" id="sGeenRankRood" class="toggle-input" />
+          <label for="sGeenRankRood" class="toggle-label"></label>
+        </div>
+      </label>
+
+      <button class="btn btn-primary" style="margin-top:12px" onclick="saveSettings()">Opslaan</button>
+    </div>
+  </aside>
+
+  <main class="main-content">
+
+    <section class="scanner-section">
+      <div class="viewfinder-wrapper">
+        <div id="reader"></div>
+        <div class="scan-line" id="scanLine"></div>
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
+        <div class="scanner-idle-msg" id="idleMsg">
+          <span>&#128247;</span>
+          <p>Druk op Start om de<br/>camera te activeren</p>
+        </div>
+      </div>
+      <div class="scanner-controls">
+        <button class="btn btn-primary" id="startBtn" onclick="startScanner()">Start Scan</button>
+        <button class="btn btn-ghost" id="stopBtn" onclick="stopScanner()" style="display:none">Stop</button>
+      </div>
+      <div class="manual-input-row">
+        <input type="number" id="manualISBN" placeholder="Of voer ISBN handmatig in..." />
+        <button class="btn btn-ghost" onclick="manualLookup()">Zoek</button>
+      </div>
+    </section>
+
+    <div class="loading-card" id="loadingCard" style="display:none">
+      <div class="spinner"></div>
+      <span id="loadingMsg">Bol.com ophalen...</span>
+    </div>
+
+    <section class="result-section" id="resultSection" style="display:none">
+
+      <div class="verdict-card" id="verdictCard">
+        <div class="verdict-light" id="verdictLight"></div>
+        <div class="verdict-text">
+          <div class="verdict-title" id="verdictTitle">—</div>
+          <div class="verdict-sub" id="verdictSub">—</div>
+        </div>
+      </div>
+
+      <div class="result-card">
+        <div class="result-isbn" id="resultISBN">—</div>
+        <div class="book-title" id="bookTitle">—</div>
+
+        <div class="prices-section">
+          <div class="prices-label">Aanbieders op bol.com <span class="prices-count" id="pricesCount"></span></div>
+          <div class="prices-list" id="pricesList"></div>
+        </div>
+
+        <div class="calc-section">
+          <div class="calc-title">Winstberekening</div>
+          <div class="calc-row">
+            <span>Inkoopprijs</span>
+            <div class="inkoop-input-wrap">
+              <span>euro</span>
+              <input type="number" id="inkoopPrijs" step="0.01" min="0" value="0.50" onchange="recalculate()" />
+            </div>
+          </div>
+          <div class="calc-row">
+            <span>Verkoopprijs (laagste)</span>
+            <span class="calc-val" id="calcVerkoopprijs">—</span>
+          </div>
+          <div class="calc-row muted">
+            <span>Commissie (<span id="calcCommissiePct">15</span>%)</span>
+            <span class="calc-val negative" id="calcCommissieAmt">—</span>
+          </div>
+          <div class="calc-row muted">
+            <span>Verzendkosten</span>
+            <span class="calc-val negative" id="calcVerzending">—</span>
+          </div>
+          <div class="calc-row muted">
+            <span>Verpakking</span>
+            <span class="calc-val negative" id="calcVerpakking">—</span>
+          </div>
+          <div class="calc-row muted">
+            <span>Inkoopprijs</span>
+            <span class="calc-val negative" id="calcInkoop">—</span>
+          </div>
+          <div class="calc-divider"></div>
+          <div class="calc-row total">
+            <span>Netto winst</span>
+            <span class="calc-val" id="calcWinst">—</span>
+          </div>
+        </div>
+
+        <a class="btn btn-accent" id="bolLink" href="#" target="_blank" rel="noopener">
+          Bekijk op bol.com
+        </a>
+        <button class="btn btn-ghost small" onclick="resetResult()">Nieuw boek scannen</button>
+      </div>
+    </section>
+
+    <section class="history-section">
+      <div class="history-header-row">
+        <h2 class="section-title">Recente scans</h2>
+        <button class="clear-btn" onclick="clearHistory()">Wis alles</button>
+      </div>
+      <ul class="history-list" id="historyList">
+        <li class="history-empty">Nog geen scans</li>
+      </ul>
+    </section>
+
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
